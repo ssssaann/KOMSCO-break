@@ -25,6 +25,11 @@ for(const weapon of ['bomb','bat','laser','meteor','quake','nuke']){
 await page.locator('[data-weapon="nuke"]').click();await clickTarget();await page.waitForFunction(()=>document.querySelector('#score').textContent!=='0');
 await page.waitForTimeout(1000);await page.screenshot({path:'test-results/destruction.png'});
 const broken=await score();await page.locator('#restore').click();assert.equal(await score(),'0');await page.locator('#undo').click();assert.equal(await score(),broken);
+const firstDepth=Number((await page.locator('#excavation').innerText()).split('/')[0]);
+assert.ok(firstDepth>0,'attack must excavate into terrain');
+await clickTarget();await page.waitForFunction(old=>Number(document.querySelector('#excavation').textContent.split('/')[0])>old,firstDepth);
+await page.waitForTimeout(1500);await page.screenshot({path:'test-results/crater.png'});
+await page.locator('#undo').click();assert.equal(Number((await page.locator('#excavation').innerText()).split('/')[0]),firstDepth);
 await page.keyboard.press('Control+z');assert.equal(await score(),'0');
 await page.keyboard.press('4');assert.equal(await page.locator('[data-weapon="meteor"]').getAttribute('aria-pressed'),'true');
 await clickTarget();await page.keyboard.press('r');await page.waitForTimeout(1100);assert.equal(await score(),'0','restore cancels pending meteor');

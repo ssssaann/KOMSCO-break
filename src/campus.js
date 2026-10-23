@@ -14,12 +14,12 @@ export const CAMPUS = {
 };
 
 export const WEAPONS = [
-  { id: 'bomb', name: '폭탄', radius: 5.5, terrain: 1, color: '#ef8750', hint: '가까운 블록을 한 번에 펑!', delay: 0 },
-  { id: 'bat', name: '방망이', radius: 2.8, terrain: 0, color: '#ca9b67', hint: '작은 범위를 정확하게, 홈런!', delay: 0 },
-  { id: 'laser', name: '레이저', radius: 1.7, terrain: 1, color: '#ed655d', hint: '하늘에서 바닥까지 관통하는 한 줄기', delay: 0 },
-  { id: 'meteor', name: '운석', radius: 9, terrain: 2, color: '#f59d4b', hint: '우주에서 날아오는 묵직한 한 방', delay: .7 },
-  { id: 'quake', name: '지진', radius: 13, terrain: 1, color: '#a19c62', hint: '지반부터 흔들어 연쇄 붕괴!', delay: .4 },
-  { id: 'nuke', name: '핵폭탄', radius: 23, terrain: 2, color: '#e8b95a', hint: '커다란 버섯구름과 압도적인 충격파', delay: .8 },
+  { id: 'bomb', name: '폭탄', radius: 5.5, terrain: 2, color: '#ef8750', hint: '가까운 블록을 한 번에 펑!', delay: 0 },
+  { id: 'bat', name: '방망이', radius: 2.8, terrain: 1, color: '#ca9b67', hint: '작은 범위를 정확하게, 홈런!', delay: 0 },
+  { id: 'laser', name: '레이저', radius: 1.7, terrain: 3, color: '#ed655d', hint: '하늘에서 바닥까지 관통하는 한 줄기', delay: 0 },
+  { id: 'meteor', name: '운석', radius: 9, terrain: 4, color: '#f59d4b', hint: '우주에서 날아오는 묵직한 한 방', delay: .7 },
+  { id: 'quake', name: '지진', radius: 13, terrain: 2, color: '#a19c62', hint: '지반부터 흔들어 연쇄 붕괴!', delay: .4 },
+  { id: 'nuke', name: '핵폭탄', radius: 23, terrain: 6, color: '#e8b95a', hint: '커다란 버섯구름과 압도적인 충격파', delay: .8 },
 ];
 
 export function createCampus() {

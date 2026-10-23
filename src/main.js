@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CAMPUS, WEAPONS, createCampus } from './campus.js';
 import { Game } from './game.js';
+import { surfaceHeight, terrainLayers, TERRAIN_BOTTOM, STRATA, MAX_TERRAIN_DEPTH } from './terrain.js';
 import './style.css';
 
 const $=id=>document.getElementById(id);
@@ -32,7 +33,7 @@ function toast(message){$('toast').textContent=message;$('toast').classList.add(
 
 const campus=createCampus(),game=new Game(campus);
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let renderer,scene,camera,controls,blocksMesh,groundMesh,aim;
+let renderer,scene,camera,controls,blocksMesh,groundMesh,strataMesh,aim;
 const dummy=new THREE.Object3D(),color=new THREE.Color();
 const effects=[],particles=[],signs=[];
 const cubeGeometry=new THREE.BoxGeometry(1,1,1);
@@ -60,11 +61,12 @@ function init(){
   const sun=new THREE.DirectionalLight('#fff4dc',3.1);sun.position.set(-35,65,30);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-58,right:58,top:58,bottom:-58,near:1,far:180});
   sun.shadow.normalBias=.06;sun.shadow.bias=-.00015;sun.shadow.radius=3;scene.add(sun);
-  const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:'#e5ebdc',roughness:1}));backdrop.rotation.x=-Math.PI/2;backdrop.position.y=-3.5;backdrop.receiveShadow=true;scene.add(backdrop);
-  const soil=new THREE.Mesh(new THREE.BoxGeometry(65,1.5,57),new THREE.MeshStandardMaterial({color:'#b0b89d',roughness:1}));soil.position.y=-2.2;soil.receiveShadow=true;soil.castShadow=true;scene.add(soil);
-  const lower=new THREE.Mesh(new THREE.BoxGeometry(63.5,.8,55.5),new THREE.MeshStandardMaterial({color:'#a7ad91',roughness:1}));lower.position.y=-2.6;scene.add(lower);
-  groundMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1.99,.65,1.99),new THREE.MeshStandardMaterial({roughness:1}),campus.terrain.length);
-  groundMesh.receiveShadow=true;groundMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(groundMesh);
+  const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:'#e5ebdc',roughness:1}));backdrop.rotation.x=-Math.PI/2;backdrop.position.y=TERRAIN_BOTTOM-1.3;backdrop.receiveShadow=true;scene.add(backdrop);
+  const lower=new THREE.Mesh(new THREE.BoxGeometry(64,1,56),new THREE.MeshStandardMaterial({color:'#77786c',roughness:1}));lower.position.y=TERRAIN_BOTTOM-.5;lower.castShadow=true;scene.add(lower);
+  groundMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(2,1,2),new THREE.MeshStandardMaterial({roughness:1}),campus.terrain.length);
+  groundMesh.receiveShadow=true;groundMesh.castShadow=true;groundMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(groundMesh);
+  strataMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(2,1,2),new THREE.MeshStandardMaterial({roughness:1}),campus.terrain.length*STRATA.length);
+  strataMesh.receiveShadow=true;strataMesh.castShadow=true;strataMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(strataMesh);
   blocksMesh=new THREE.InstancedMesh(cubeGeometry,new THREE.MeshStandardMaterial({roughness:.85}),campus.blocks.length);
   blocksMesh.castShadow=true;blocksMesh.receiveShadow=true;blocksMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(blocksMesh);syncWorld();blocksMesh.computeBoundingSphere();groundMesh.computeBoundingSphere();
@@ -75,7 +77,7 @@ function init(){
   renderer.domElement.addEventListener('pointerdown',event=>{if(event.isPrimary)pointerStart={x:event.clientX,y:event.clientY,id:event.pointerId,moved:false};else if(pointerStart)pointerStart.moved=true;});
   renderer.domElement.addEventListener('pointermove',event=>{
     if(pointerStart&&Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>7)pointerStart.moved=true;
-    hover=pick(event);if(hover&&!busy){aim.visible=true;aim.position.set(hover.x,.42,hover.z);}else aim.visible=false;
+    hover=pick(event);if(hover&&!busy){aim.visible=true;aim.position.set(hover.x,hover.y+.04,hover.z);}else aim.visible=false;
   });
   renderer.domElement.addEventListener('pointerleave',()=>{aim.visible=false;});
   renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;});
@@ -95,8 +97,15 @@ function resize(){
 }
 function syncWorld(){
   for(const b of campus.blocks){dummy.position.set(b.x,b.y,b.z);dummy.rotation.set(0,0,0);const s=game.destroyed[b.id]?0:1;dummy.scale.set(.96*s,.86*s,.96*s);dummy.updateMatrix();blocksMesh.setMatrixAt(b.id,dummy.matrix);blocksMesh.setColorAt(b.id,color.set(b.color));}
-  for(const t of campus.terrain){const depth=game.depths[t.id];dummy.position.set(t.x,-.05-depth*.57,t.z);dummy.scale.set(1,1,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();groundMesh.setMatrixAt(t.id,dummy.matrix);groundMesh.setColorAt(t.id,color.set(depth===2?'#8d8068':depth===1?'#a69b7a':t.color));}
+  for(const t of campus.terrain){
+    const depth=game.depths[t.id];
+    dummy.position.set(t.x,surfaceHeight(depth)-.09,t.z);dummy.scale.set(1,.18,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();
+    groundMesh.setMatrixAt(t.id,dummy.matrix);groundMesh.setColorAt(t.id,color.set(depth>=8?'#77766b':depth>=4?'#a48b68':depth?'#b49a75':t.color));
+    terrainLayers(depth).forEach((layer,i)=>{dummy.position.set(t.x,layer.y,t.z);const visible=layer.height>0?1:0;dummy.scale.set(visible,layer.height,visible);dummy.updateMatrix();const index=t.id*STRATA.length+i;strataMesh.setMatrixAt(index,dummy.matrix);strataMesh.setColorAt(index,color.set(layer.color));});
+  }
   blocksMesh.instanceMatrix.needsUpdate=true;blocksMesh.instanceColor.needsUpdate=true;groundMesh.instanceMatrix.needsUpdate=true;groundMesh.instanceColor.needsUpdate=true;
+  strataMesh.instanceMatrix.needsUpdate=true;strataMesh.instanceColor.needsUpdate=true;
+  groundMesh.computeBoundingSphere();strataMesh.computeBoundingSphere();
   for(const sign of signs){const b=CAMPUS.buildings[sign.userData.building];const remaining=campus.blocks.filter(block=>block.building===sign.userData.building&&!game.destroyed[block.id]).length;sign.visible=remaining>b.width*b.depth*.3;}
 }
 
@@ -109,8 +118,8 @@ function makeText(text,width,height,fontSize,hex='#3d6157',bg=null){
 }
 function addDecorations(){
   // Parking markings, entry road and cars form a miniature foreground.
-  for(let x=13;x<28;x+=3){const stripe=addBox(x,.29,5.5,.06,.035,4.7,'#eef0dc');stripe.castShadow=false;}
-  for(let x=-30;x<32;x+=5){const line=addBox(x,.29,11.9,2,.025,.09,'#e9e5c5');line.castShadow=false;}
+  for(let x=13;x<28;x+=3){const stripe=addBox(x,.29,5.5,.06,.035,4.7,'#eef0dc');stripe.castShadow=false;stripe.userData.scenery=true;}
+  for(let x=-30;x<32;x+=5){const line=addBox(x,.29,11.9,2,.025,.09,'#e9e5c5');line.castShadow=false;line.userData.scenery=true;}
   // Cars are built as breakable scenery so they cannot float over a crater.
   for(const [x,z,hex] of [[14.5,5.6,'#e8e3d7'],[20.5,5.6,'#799397'],[26.5,5.6,'#c9a378']]){
     const car=addBox(x,.65,z,1.25,.65,2.15,hex);const top=addBox(x,1.1,z,1.1,.45,1.1,'#849c9b');
@@ -127,7 +136,7 @@ function addDecorations(){
 function pick(event){
   const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
   raycaster.setFromCamera(pointer,camera);
-  const hits=raycaster.intersectObjects([blocksMesh,groundMesh],false);
+  const hits=raycaster.intersectObjects([blocksMesh,groundMesh,strataMesh],false);
   for(const hit of hits){if(hit.object===blocksMesh&&game.destroyed[hit.instanceId])continue;return hit.point.clone();}
   return null;
 }
@@ -154,9 +163,10 @@ function impact(w,point){
   for(const id of result.removed.slice(0,reducedMotion?24:230)){
     const b=campus.blocks[id];spawnDebris(b,point,w);
   }
+  for(const id of result.changed.slice(0,reducedMotion?8:55)){const t=campus.terrain[id];spawnDebris({x:t.x,y:surfaceHeight(game.depths[id])+1,z:t.z,color:'#aa8c64'},point,w);}
   spawnRing(point,w.radius,w.color,w.id==='nuke'?1.5:.7);
   if(w.id==='laser'){
-    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,42,12),new THREE.MeshBasicMaterial({color:'#ff7158',transparent:true,opacity:.9}));beam.position.set(point.x,21,point.z);scene.add(beam);effects.push({mesh:beam,kind:'beam',age:0,life:.38});
+    const beam=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,42,12),new THREE.MeshBasicMaterial({color:'#ff7158',transparent:true,opacity:.9}));beam.position.set(point.x,point.y+21,point.z);scene.add(beam);effects.push({mesh:beam,kind:'beam',age:0,life:.38});
   }else if(w.id==='bat'){
     const bat=new THREE.Mesh(new THREE.CapsuleGeometry(.4,6,4,8),new THREE.MeshStandardMaterial({color:'#bd935e'}));bat.position.copy(point).add(new THREE.Vector3(0,3,0));bat.rotation.z=-1;scene.add(bat);effects.push({mesh:bat,kind:'bat',age:0,life:.35});
   }else if(w.id==='nuke'){
@@ -170,7 +180,8 @@ function impact(w,point){
   finishAttack();
 }
 function finishAttack(){pending=null;busy=false;$('hint-text').textContent=`${weapon.name} 장착 완료 · ${weapon.hint}`;}
-function clearScenery(){scene.traverse(obj=>{if(obj.userData.scenery){const tile=campus.terrain.find(t=>Math.abs(t.x-obj.position.x)<=1&&Math.abs(t.z-obj.position.z)<=1);obj.visible=!tile||game.depths[tile.id]===0;}});}
+function groundAt(x,z){const index=game.groundLookup.get(`${Math.floor(x/2)}:${Math.floor(z/2)}`);return index===undefined?TERRAIN_BOTTOM-1.3:surfaceHeight(game.depths[index]);}
+function clearScenery(){scene.traverse(obj=>{if(obj.userData.scenery){obj.visible=groundAt(obj.position.x,obj.position.z)===surfaceHeight(0);}});}
 
 function spawnDebris(b,point,w){
   if(particles.length>=450)return;
@@ -179,7 +190,7 @@ function spawnDebris(b,point,w){
   particles.push({mesh,v:new THREE.Vector3(direction.x*(2+Math.random()*power),3+Math.random()*10,direction.z*(2+Math.random()*power)),spin:new THREE.Vector3(Math.random()*4,Math.random()*5,Math.random()*4),life:2+Math.random()*1.8,age:0});
 }
 function spawnRing(point,radius,hex,life){
-  const mesh=new THREE.Mesh(new THREE.RingGeometry(.94,1,80),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.8,depthWrite:false,side:THREE.DoubleSide}));mesh.rotation.x=-Math.PI/2;mesh.position.set(point.x,.5,point.z);scene.add(mesh);effects.push({mesh,kind:'ring',age:0,life,radius});
+  const mesh=new THREE.Mesh(new THREE.RingGeometry(.94,1,80),new THREE.MeshBasicMaterial({color:hex,transparent:true,opacity:.8,depthWrite:false,side:THREE.DoubleSide}));mesh.rotation.x=-Math.PI/2;mesh.position.set(point.x,point.y+.08,point.z);scene.add(mesh);effects.push({mesh,kind:'ring',age:0,life,radius});
 }
 function cloud(point){
   for(let i=0;i<10;i++){
@@ -194,6 +205,7 @@ function disposeEffect(effect){scene.remove(effect.mesh);if(effect.mesh.geometry
 function clearEffects(){pending=null;busy=false;shake=0;for(const e of [...effects,...particles])disposeEffect(e);effects.length=0;particles.length=0;$('score-popup').classList.remove('animate');finishAttack();}
 function updateUI(){
   $('score').textContent=game.score.toLocaleString();$('damage').innerHTML=`${game.damage.toFixed(1)}<span>%</span>`;$('damage-bar').style.width=`${game.damage}%`;$('blocks').textContent=game.destroyedCount.toLocaleString();
+  $('excavation').textContent=`${Math.max(...game.depths)} / ${MAX_TERRAIN_DEPTH}`;
   if(game.score>best){best=game.score;try{localStorage.setItem('komsco-best',String(best));}catch{/* Session still works without localStorage. */}}
   $('best').textContent=best.toLocaleString();$('undo').disabled=!game.history.length;
 }
@@ -215,7 +227,8 @@ function animate(){
   if(pending){pending.remaining-=dt;if(pending.remaining<=0){const action=pending;pending=null;impact(action.weapon,action.point);}}
   if(aim.visible){const scale=weapon.radius/WEAPONS[0].radius;aim.scale.setScalar(scale*(1+Math.sin(elapsed*3)*.02));}
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.age+=dt;p.v.y-=19*dt;p.mesh.position.addScaledVector(p.v,dt);p.mesh.rotation.x+=p.spin.x*dt;p.mesh.rotation.y+=p.spin.y*dt;
-    if(p.mesh.position.y<.25){p.mesh.position.y=.25;p.v.y=Math.abs(p.v.y)*.25;p.v.x*=.9;p.v.z*=.9;}
+    const floor=groundAt(p.mesh.position.x,p.mesh.position.z)+.15;
+    if(p.mesh.position.y<floor){p.mesh.position.y=floor;p.v.y=Math.abs(p.v.y)*.25;p.v.x*=.9;p.v.z*=.9;}
     if(p.age>p.life-.5)p.mesh.scale.multiplyScalar(Math.max(0,1-dt*5));if(p.age>=p.life){disposeEffect(p);particles.splice(i,1);}
   }
   for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.age+=dt;const t=Math.min(e.age/e.life,1);
