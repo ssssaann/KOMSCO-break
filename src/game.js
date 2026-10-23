@@ -53,6 +53,8 @@ export class Game {
       }
     }
     let base=0;
+    // Attached details and tree crowns collapse with their structural anchors.
+    for(const block of this.blocks){if(block.support!==undefined&&!this.destroyed[block.id]&&(justDestroyed.has(block.support)||this.destroyed[block.support]))justDestroyed.add(block.id);}
     for(const i of justDestroyed){this.destroyed[i]=1;base+=this.blocks[i].kind==='building'?10:3;}
     for(const i of changed){base+=(nextDepths.get(i)-this.depths[i])*5;this.depths[i]=nextDepths.get(i);}
     const bonus=justDestroyed.size>=40;

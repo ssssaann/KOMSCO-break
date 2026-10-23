@@ -11,6 +11,11 @@ const base=process.env.GAME_TEST_URL||'http://127.0.0.1:5174';
 await page.goto(base);await page.locator('#loading').waitFor({state:'detached',timeout:30000});
 await page.locator('canvas').waitFor();await page.waitForTimeout(1200);
 await page.screenshot({path:'test-results/desktop.png'});
+assert.equal(await page.locator('body').getAttribute('data-season'),'spring');
+await page.locator('[data-season="autumn"]').click();
+assert.equal(await page.locator('button[data-season="autumn"]').getAttribute('aria-pressed'),'true');
+await page.waitForTimeout(300);await page.screenshot({path:'test-results/autumn.png'});
+await page.locator('button[data-season="spring"]').click();
 const score=()=>page.locator('#score').innerText();
 const clickTarget=async()=>{const rect=await page.locator('#scene').boundingBox();await page.mouse.click(rect.x+rect.width*.50,rect.y+rect.height*.46);};
 for(const weapon of ['bomb','bat','laser','meteor','quake','nuke']){
@@ -24,7 +29,12 @@ for(const weapon of ['bomb','bat','laser','meteor','quake','nuke']){
 }
 await page.locator('[data-weapon="nuke"]').click();await clickTarget();await page.waitForFunction(()=>document.querySelector('#score').textContent!=='0');
 await page.waitForTimeout(1000);await page.screenshot({path:'test-results/destruction.png'});
-const broken=await score();await page.locator('#restore').click();assert.equal(await score(),'0');await page.locator('#undo').click();assert.equal(await score(),broken);
+const broken=await score();
+const beforeSeason=await page.locator('#damage, #blocks, #excavation').allTextContents();
+await page.locator('button[data-season="autumn"]').click();
+assert.equal(await score(),broken,'season change preserves score');
+assert.deepEqual(await page.locator('#damage, #blocks, #excavation').allTextContents(),beforeSeason,'season preserves destruction and crater depths');
+await page.locator('#restore').click();assert.equal(await score(),'0');await page.locator('#undo').click();assert.equal(await score(),broken);
 const firstDepth=Number((await page.locator('#excavation').innerText()).split('/')[0]);
 assert.ok(firstDepth>0,'attack must excavate into terrain');
 await clickTarget();await page.waitForFunction(old=>Number(document.querySelector('#excavation').textContent.split('/')[0])>old,firstDepth);
@@ -39,13 +49,16 @@ await page.mouse.move(720,490);await page.mouse.down();await page.mouse.move(800
 assert.equal(await score(),'0','rotating the map must not fire a weapon');await page.locator('#view-reset').click();
 await page.locator('#zoom-in').click();await page.locator('#zoom-out').click();
 await page.reload();await page.locator('#loading').waitFor({state:'detached'});assert.notEqual(await page.locator('#best').innerText(),'0','best persists across reloads');
+assert.equal(await page.locator('body').getAttribute('data-season'),'autumn','season preference persists across reloads');
 await context.close();
 const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
 const phone=await mobile.newPage();phone.on('pageerror',error=>errors.push(error.message));await phone.goto(base);await phone.locator('#loading').waitFor({state:'detached'});
 assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile has no horizontal overflow');
 await phone.screenshot({path:'test-results/mobile.png'});
+await phone.locator('button[data-season="autumn"]').tap();assert.equal(await phone.locator('body').getAttribute('data-season'),'autumn');
+await phone.screenshot({path:'test-results/mobile-autumn.png'});
 await phone.locator('[data-weapon="bomb"]').tap();
 const r=await phone.locator('#scene').boundingBox();await phone.touchscreen.tap(r.x+r.width*.5,r.y+r.height*.46);
 await phone.waitForFunction(()=>document.querySelector('#score').textContent!=='0');await phone.locator('#undo').tap();assert.equal(await phone.locator('#score').innerText(),'0');
 await mobile.close();await browser.close();assert.deepEqual(errors,[]);
-console.log('PASS: desktop + mobile; all 6 weapons, undo/reset, delayed-action cancellation, keyboard, help, sound, persistent best, responsive layout; no runtime errors.');
+console.log('PASS: desktop + mobile; spring/autumn palettes + persistence; season changes preserve score, damage, craters and undo; all 6 weapons, restore, keyboard, sound; no runtime errors.');

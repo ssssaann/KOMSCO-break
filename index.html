@@ -25,7 +25,12 @@
           <div class="eyebrow"><span></span> A LITTLE BREAK, A BIG BANG.</div>
           <h1>오늘도 수고했어.<br>이제, <em>부숴볼까?</em></h1>
           <p>쌓인 스트레스만큼 시원하게.<br>복구는 언제든, 클릭 한 번이면 돼요.</p>
-          <div class="location"><span>↗</span><div>대전 본사 캠퍼스<small>과학로 80-67 · 외관을 참고한 게임 맵</small></div></div>
+          <div class="location"><span>↗</span><div>대전 본사 캠퍼스<small>과학로 80-67 · 제공된 사진·항공뷰 반영</small></div></div>
+          <div class="season-picker" role="group" aria-label="계절 선택">
+            <button data-season="spring" aria-pressed="true"><span>✿</span> 봄 · 벚꽃</button>
+            <button data-season="autumn" aria-pressed="false"><span>♧</span> 가을 · 단풍</button>
+          </div>
+          <small id="season-caption">벚꽃이 피는 대전 캠퍼스</small>
         </section>
 
         <section class="score-panel" aria-label="점수판">
@@ -62,7 +67,7 @@
       <div class="eyebrow">WELCOME TO YOUR LITTLE BREAK</div><h2>잘 부수고,<br>가볍게 돌아가세요.</h2>
       <p>하단에서 무기를 선택하고 캠퍼스를 클릭하세요. 아래층이나 지반을 부수면 위층도 무너져요. 같은 자리를 다시 공격하면 지하 12단계까지 깊이 파낼 수 있어요.</p>
       <dl><dt>화면 조작</dt><dd>드래그로 회전 · 스크롤 / 두 손가락으로 확대·축소<br>모바일에서는 탭해서 발사</dd><dt>단축키</dt><dd>1–6 무기 선택 · Ctrl/⌘ Z 되돌리기 · R 전부 복구</dd><dt>점수</dt><dd>건물 블록 10점 · 나무 블록 3점 · 지형 1단계 5점<br>한 번에 40블록 이상 파괴하면 25% 보너스!</dd><dt>되돌리기 & 복구</dt><dd>최근 30번의 행동을 되돌릴 수 있어요. 점수와 지형도 함께 복원돼요. 전부 복구도 되돌릴 수 있어요.</dd><dt>기록</dt><dd>최고 점수는 이 브라우저에 저장돼요. 다른 사람과 공유되는 온라인 순위는 없어요.</dd></dl>
-      <p class="map-note">대전 본사 공개 외관 사진을 참고해 재구성한 미니어처입니다. 실제 건물의 위치·규모를 정확하게 재현한 지도는 아닙니다. <a href="https://www.kukinews.com/article/view/kuk202202210102" target="_blank" rel="noreferrer">외관 참고 ↗</a></p>
+      <p class="map-note">제공된 건물 도면·항공뷰·봄과 가을 전경을 참고한 미니어처입니다. 나래관, 기술연구원과 연결통로, 키움관, 화폐박물관의 외관을 반영했습니다. 실제 거리와 규모는 게임용으로 축약했습니다. 봄·가을을 바꿔도 점수와 파괴·복구 기록은 유지됩니다.</p>
       <button id="start-play" class="primary-button">좋아, 부숴보자 ↗</button>
     </dialog>
     <script type="module" src="./src/main.js"></script>
