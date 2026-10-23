@@ -1,0 +1,46 @@
+import { chromium } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+
+await mkdir('test-results',{recursive:true});
+const browser=await chromium.launch({channel:'msedge',headless:true,args:['--enable-webgl','--ignore-gpu-blocklist']});
+const context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+const page=await context.newPage();const errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+const base=process.env.GAME_TEST_URL||'http://127.0.0.1:5174';
+await page.goto(base);await page.locator('#loading').waitFor({state:'detached',timeout:30000});
+await page.locator('canvas').waitFor();await page.waitForTimeout(1200);
+await page.screenshot({path:'test-results/desktop.png'});
+const score=()=>page.locator('#score').innerText();
+const clickTarget=async()=>{const rect=await page.locator('#scene').boundingBox();await page.mouse.click(rect.x+rect.width*.50,rect.y+rect.height*.46);};
+for(const weapon of ['bomb','bat','laser','meteor','quake','nuke']){
+  await page.locator('#restore').click();
+  await page.locator(`[data-weapon="${weapon}"]`).click();
+  assert.equal(await page.locator(`[data-weapon="${weapon}"]`).getAttribute('aria-pressed'),'true');
+  await clickTarget();
+  await page.waitForFunction(()=>document.querySelector('#score').textContent!=='0',{},{timeout:10000});
+  const value=await score();assert.notEqual(value,'0',`${weapon} should award points`);
+  await page.locator('#undo').click();assert.equal(await score(),'0',`${weapon} undo should restore score`);
+}
+await page.locator('[data-weapon="nuke"]').click();await clickTarget();await page.waitForFunction(()=>document.querySelector('#score').textContent!=='0');
+await page.waitForTimeout(1000);await page.screenshot({path:'test-results/destruction.png'});
+const broken=await score();await page.locator('#restore').click();assert.equal(await score(),'0');await page.locator('#undo').click();assert.equal(await score(),broken);
+await page.keyboard.press('Control+z');assert.equal(await score(),'0');
+await page.keyboard.press('4');assert.equal(await page.locator('[data-weapon="meteor"]').getAttribute('aria-pressed'),'true');
+await clickTarget();await page.keyboard.press('r');await page.waitForTimeout(1100);assert.equal(await score(),'0','restore cancels pending meteor');
+await page.locator('#help').click();assert.ok(await page.locator('#help-dialog').isVisible());await page.keyboard.press('Escape');
+await page.locator('#sound').click();assert.equal(await page.locator('#sound').getAttribute('aria-label'),'소리 끄기');await page.locator('#sound').click();
+await page.mouse.move(720,490);await page.mouse.down();await page.mouse.move(800,510,{steps:8});await page.mouse.up();
+assert.equal(await score(),'0','rotating the map must not fire a weapon');await page.locator('#view-reset').click();
+await page.locator('#zoom-in').click();await page.locator('#zoom-out').click();
+await page.reload();await page.locator('#loading').waitFor({state:'detached'});assert.notEqual(await page.locator('#best').innerText(),'0','best persists across reloads');
+await context.close();
+const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+const phone=await mobile.newPage();phone.on('pageerror',error=>errors.push(error.message));await phone.goto(base);await phone.locator('#loading').waitFor({state:'detached'});
+assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile has no horizontal overflow');
+await phone.screenshot({path:'test-results/mobile.png'});
+await phone.locator('[data-weapon="bomb"]').tap();
+const r=await phone.locator('#scene').boundingBox();await phone.touchscreen.tap(r.x+r.width*.5,r.y+r.height*.46);
+await phone.waitForFunction(()=>document.querySelector('#score').textContent!=='0');await phone.locator('#undo').tap();assert.equal(await phone.locator('#score').innerText(),'0');
+await mobile.close();await browser.close();assert.deepEqual(errors,[]);
+console.log('PASS: desktop + mobile; all 6 weapons, undo/reset, delayed-action cancellation, keyboard, help, sound, persistent best, responsive layout; no runtime errors.');
